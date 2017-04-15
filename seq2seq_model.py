@@ -25,8 +25,8 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from tensorflow.models.rnn.translate import data_utils
-
+#from tensorflow.models.rnn.translate import data_utils
+import data_utils
 
 class Seq2SeqModel(object):
   """Sequence-to-sequence model with attention and for multiple buckets.
@@ -95,22 +95,32 @@ class Seq2SeqModel(object):
       softmax_loss_function = sampled_loss
 
     # Create the internal multi-layer cell for our RNN.
-    single_cell = tf.nn.rnn_cell.GRUCell(size)
+    #single_cell = tf.nn.rnn_cell.GRUCell(size)
+      single_cell = tf.contrib.rnn.core_rnn_cell.GRUCell(size)
     if use_lstm:
       single_cell = tf.nn.rnn_cell.BasicLSTMCell(size)
     cell = single_cell
     if num_layers > 1:
-      cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * num_layers)
+      #cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * num_layers)
+      cell = tf.contrib.rnn.core_rnn_cell.MultiRNNCell([single_cell] * num_layers)
 
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
-      return tf.nn.seq2seq.embedding_attention_seq2seq(
+      # return tf.nn.seq2seq.embedding_attention_seq2seq(
+      #     encoder_inputs, decoder_inputs, cell,
+      #     num_encoder_symbols=source_vocab_size,
+      #     num_decoder_symbols=target_vocab_size,
+      #     embedding_size=size,
+      #     output_projection=output_projection,
+      #     feed_previous=do_decode)
+      return tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell,
           num_encoder_symbols=source_vocab_size,
           num_decoder_symbols=target_vocab_size,
           embedding_size=size,
           output_projection=output_projection,
           feed_previous=do_decode)
+
 
     # Feeds for inputs.
     self.encoder_inputs = []
@@ -143,11 +153,17 @@ class Seq2SeqModel(object):
               for output in self.outputs[b]
           ]
     else:
-      self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
+      # self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
+      #     self.encoder_inputs, self.decoder_inputs, targets,
+      #     self.target_weights, buckets,
+      #     lambda x, y: seq2seq_f(x, y, False),
+      #     softmax_loss_function=softmax_loss_function)
+      self.outputs, self.losses = tf.contrib.legacy_seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
           self.target_weights, buckets,
           lambda x, y: seq2seq_f(x, y, False),
           softmax_loss_function=softmax_loss_function)
+
 
     # Gradients and SGD update operation for training the model.
     params = tf.trainable_variables()
